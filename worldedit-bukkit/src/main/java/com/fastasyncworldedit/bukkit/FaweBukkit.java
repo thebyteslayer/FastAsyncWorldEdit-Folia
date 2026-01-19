@@ -11,6 +11,7 @@ import com.fastasyncworldedit.bukkit.regions.ResidenceFeature;
 import com.fastasyncworldedit.bukkit.regions.TownyFeature;
 import com.fastasyncworldedit.bukkit.regions.WorldGuardFeature;
 import com.fastasyncworldedit.bukkit.util.BukkitTaskManager;
+import com.fastasyncworldedit.bukkit.util.FoliaTaskManager;
 import com.fastasyncworldedit.bukkit.util.ItemUtil;
 import com.fastasyncworldedit.bukkit.util.image.BukkitImageViewer;
 import com.fastasyncworldedit.core.FAWEPlatformAdapterImpl;
@@ -172,7 +173,19 @@ public class FaweBukkit implements IFawe, Listener {
      */
     @Override
     public TaskManager getTaskManager() {
+        if (isFolia()) {
+            return new FoliaTaskManager(plugin);
+        }
         return new BukkitTaskManager(plugin);
+    }
+
+    private static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     public Plugin getPlugin() {
@@ -258,6 +271,9 @@ public class FaweBukkit implements IFawe, Listener {
 
     @Override
     public String getPlatform() {
+        if (isFolia()) {
+            return "Folia";
+        }
         return "Bukkit";
     }
 

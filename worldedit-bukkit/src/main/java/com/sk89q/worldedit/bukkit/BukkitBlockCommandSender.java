@@ -196,13 +196,7 @@ public class BukkitBlockCommandSender extends AbstractCommandBlockActor {
                     updateActive();
                 } else {
                     // we should update it eventually
-                    Bukkit.getScheduler().callSyncMethod(
-                            plugin,
-                            () -> {
-                                updateActive();
-                                return null;
-                            }
-                    );
+                    TaskManager.taskManager().taskNowMain(() -> updateActive());
                 }
                 return active;
             }

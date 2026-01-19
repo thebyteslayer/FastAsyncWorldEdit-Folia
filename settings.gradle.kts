@@ -49,7 +49,7 @@ logger.lifecycle("""
 *******************************************
 """)
 
-rootProject.name = "FastAsyncWorldEdit"
+rootProject.name = "FastAsyncWorldEdit-Folia"
 
 includeBuild("build-logic")
 

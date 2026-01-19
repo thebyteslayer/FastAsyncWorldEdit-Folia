@@ -47,6 +47,7 @@ import com.sk89q.worldedit.util.lifecycle.Lifecycled;
 import com.sk89q.worldedit.world.DataFixer;
 import com.sk89q.worldedit.world.registry.Registries;
 import io.papermc.lib.PaperLib;
+import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
@@ -135,7 +136,21 @@ public class BukkitServerInterface extends AbstractPlatform implements MultiUser
 
     @Override
     public int schedule(long delay, long period, Runnable task) {
+        if (isFolia()) {
+            final GlobalRegionScheduler scheduler = org.bukkit.Bukkit.getGlobalRegionScheduler();
+            scheduler.runAtFixedRate(plugin, (scheduledTask) -> task.run(), delay, period);
+            return 1;
+        }
         return Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, delay, period);
+    }
+
+    private static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     @Override

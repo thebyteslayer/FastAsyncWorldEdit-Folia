@@ -106,6 +106,7 @@ public abstract class QueueHandler implements Trimable, Runnable {
 
     @Override
     public void run() {
+        // On Folia, isMainThread() always returns true, so this check is safe
         if (!Fawe.isMainThread()) {
             throw new IllegalStateException("Not main thread");
         }

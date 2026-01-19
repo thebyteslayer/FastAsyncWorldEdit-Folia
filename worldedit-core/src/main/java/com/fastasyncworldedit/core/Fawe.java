@@ -94,11 +94,13 @@ public class Fawe {
     private TextureUtil textures;
     private QueueHandler queueHandler;
     private Thread thread;
+    private final boolean isFolia;
 
     private Fawe(final IFawe implementation) {
         instance = this;
         this.implementation = implementation;
         this.thread = Thread.currentThread();
+        this.isFolia = checkFolia();
         /*
          * Implementation dependent stuff
          */
@@ -206,8 +208,24 @@ public class Fawe {
         }
     }
 
+    private static boolean checkFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
     public static boolean isMainThread() {
-        return instance == null || instance.thread == Thread.currentThread();
+        if (instance == null) {
+            return true;
+        }
+        // On Folia, there is no single "main thread" - region threads are all valid
+        if (instance.isFolia) {
+            return true;
+        }
+        return instance.thread == Thread.currentThread();
     }
 
     /**

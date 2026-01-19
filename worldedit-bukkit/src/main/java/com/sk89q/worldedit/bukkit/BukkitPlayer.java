@@ -76,6 +76,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BukkitPlayer extends AbstractPlayerActor {
 
     private static final Logger LOGGER = LogManagerCompat.getLogger();
+    private static Boolean foliaCache = null;
 
     private final Player player;
     private final WorldEditPlugin plugin;
@@ -124,6 +125,18 @@ public class BukkitPlayer extends AbstractPlayerActor {
             return cached.getRawMeta();
         }
         return new ConcurrentHashMap<>();
+    }
+
+    private static boolean isFolia() {
+        if (foliaCache == null) {
+            try {
+                Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+                foliaCache = true;
+            } catch (ClassNotFoundException e) {
+                foliaCache = false;
+            }
+        }
+        return foliaCache;
     }
     //FAWE end
 
@@ -241,15 +254,21 @@ public class BukkitPlayer extends AbstractPlayerActor {
             }
         }
         org.bukkit.World finalWorld = world;
-        //FAWE end
-        return TaskManager.taskManager().sync(() -> player.teleport(new Location(
+        Location targetLocation = new Location(
                 finalWorld,
                 pos.x(),
                 pos.y(),
                 pos.z(),
                 yaw,
                 pitch
-        )));
+        );
+        //FAWE end
+        if (isFolia()) {
+            player.teleportAsync(targetLocation);
+            return true;
+        } else {
+            return TaskManager.taskManager().sync(() -> player.teleport(targetLocation));
+        }
     }
 
     @Override
@@ -363,7 +382,13 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public boolean setLocation(com.sk89q.worldedit.util.Location location) {
-        return player.teleport(BukkitAdapter.adapt(location));
+        Location bukkitLocation = BukkitAdapter.adapt(location);
+        if (isFolia()) {
+            player.teleportAsync(bukkitLocation);
+            return true;
+        } else {
+            return player.teleport(bukkitLocation);
+        }
     }
 
     @Override

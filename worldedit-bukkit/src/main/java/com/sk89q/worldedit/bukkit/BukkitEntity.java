@@ -45,6 +45,19 @@ public class BukkitEntity implements Entity {
     private final WeakReference<org.bukkit.entity.Entity> entityRef;
     //FAWE start
     private final EntityType type;
+    private static Boolean foliaCache = null;
+
+    private static boolean isFolia() {
+        if (foliaCache == null) {
+            try {
+                Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+                foliaCache = true;
+            } catch (ClassNotFoundException e) {
+                foliaCache = false;
+            }
+        }
+        return foliaCache;
+    }
     //FAWE end
 
     /**
@@ -84,7 +97,13 @@ public class BukkitEntity implements Entity {
     public boolean setLocation(Location location) {
         org.bukkit.entity.Entity entity = entityRef.get();
         if (entity != null) {
-            return entity.teleport(BukkitAdapter.adapt(location));
+            org.bukkit.Location bukkitLocation = BukkitAdapter.adapt(location);
+            if (isFolia() && entity instanceof org.bukkit.entity.Player) {
+                ((org.bukkit.entity.Player) entity).teleportAsync(bukkitLocation);
+                return true;
+            } else {
+                return entity.teleport(bukkitLocation);
+            }
         } else {
             return false;
         }

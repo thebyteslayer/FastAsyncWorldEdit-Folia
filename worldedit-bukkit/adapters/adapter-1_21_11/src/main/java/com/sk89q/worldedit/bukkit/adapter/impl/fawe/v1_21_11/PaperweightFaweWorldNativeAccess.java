@@ -16,6 +16,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerChunkCache;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -28,6 +29,7 @@ import org.bukkit.event.block.BlockPhysicsEvent;
 import org.enginehub.linbus.tree.LinCompoundTag;
 
 import javax.annotation.Nullable;
+import java.lang.reflect.Field;
 import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.HashSet;
@@ -62,7 +64,46 @@ public class PaperweightFaweWorldNativeAccess implements WorldNativeAccess<Level
         this.level = level;
         // Use the actual tick as minecraft-defined so we don't try to force blocks into the world when the server's already lagging.
         //  - With the caveat that we don't want to have too many cached changed (1024) so we'd flush those at 1024 anyway.
-        this.lastTick = new AtomicInteger(MinecraftServer.currentTick);
+        // In Folia, ticks are per-region, so we use a fallback approach
+        int initialTick = getCurrentTick();
+        this.lastTick = new AtomicInteger(initialTick);
+    }
+
+    private static final boolean IS_FOLIA = checkFolia();
+    private static final Field CURRENT_TICK_FIELD = getCurrentTickField();
+
+    private static boolean checkFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private static Field getCurrentTickField() {
+        if (IS_FOLIA) {
+            return null;
+        }
+        try {
+            Field field = MinecraftServer.class.getField("currentTick");
+            field.setAccessible(true);
+            return field;
+        } catch (NoSuchFieldException e) {
+            return null;
+        }
+    }
+
+    private static int getCurrentTick() {
+        if (IS_FOLIA || CURRENT_TICK_FIELD == null) {
+            // Folia doesn't have global currentTick, return 0 to disable tick comparison
+            return 0;
+        }
+        try {
+            return CURRENT_TICK_FIELD.getInt(null);
+        } catch (IllegalAccessException | NoSuchFieldError e) {
+            return 0;
+        }
     }
 
     private Level getLevel() {
@@ -98,7 +139,6 @@ public class PaperweightFaweWorldNativeAccess implements WorldNativeAccess<Level
             LevelChunk levelChunk, BlockPos blockPos,
             net.minecraft.world.level.block.state.BlockState blockState
     ) {
-        int currentTick = MinecraftServer.currentTick;
         if (Fawe.isMainThread()) {
             return levelChunk.setBlockState(blockPos, blockState,
                     this.sideEffectSet.shouldApply(SideEffect.UPDATE) ? 0 : 512
@@ -107,7 +147,14 @@ public class PaperweightFaweWorldNativeAccess implements WorldNativeAccess<Level
         // Since FAWE is.. Async we need to do it on the main thread (wooooo.. :( )
         cachedChanges.add(new CachedChange(levelChunk, blockPos, blockState));
         cachedChunksToSend.add(new IntPair(levelChunk.locX, levelChunk.locZ));
-        boolean nextTick = lastTick.get() > currentTick;
+        
+        int currentTick = getCurrentTick();
+        boolean nextTick = false;
+        if (currentTick > 0) {
+            // Only check tick if we're not on Folia (currentTick will be 0 on Folia)
+            nextTick = lastTick.get() > currentTick;
+        }
+        
         if (nextTick || cachedChanges.size() >= 1024) {
             if (nextTick) {
                 lastTick.set(currentTick);

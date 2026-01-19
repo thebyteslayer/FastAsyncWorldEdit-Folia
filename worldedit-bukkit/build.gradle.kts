@@ -194,7 +194,8 @@ tasks.register<ShadowJar>("reobfShadowJar") {
 }
 
 tasks.named<ShadowJar>("shadowJar") {
-    archiveFileName.set("${rootProject.name}-Paper-${project.version}.${archiveExtension.getOrElse("jar")}")
+    val mcVersion = "1.21.11"
+    archiveFileName.set("fawe-folia-${project.version}+mc${mcVersion}.${archiveExtension.getOrElse("jar")}")
     configurations.add(adapters)
     manifest {
         attributes(
